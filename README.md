@@ -1,54 +1,52 @@
-== Getting Kubernetes on Raspberry Pi
+# Getting Kubernetes on Raspberry Pi
 
-==== Image setup
+## Image setup
+```shell
+wget https://github.com/hypriot/image-builder-rpi/releases/download/v1.5.0/hypriotos-rpi-v1.5.0.img.zip
+unzip hypriotos-rpi-v1.5.0.img.zip
+curl -O https://raw.githubusercontent.com/hypriot/flash/master/$(uname -s)/flash
+chmod +x flash
+flash -n kmaster-01 hypriotos-rpi-v1.5.0.img  # Flashing img to sdcard. Name = kmaster-01
+```
+Then reset the password on the node, add in your ssh key, etc.
 
- - wget https://github.com/hypriot/image-builder-rpi/releases/download/v1.5.0/hypriotos-rpi-v1.5.0.img.zip
+## Master/node setup
+```shell
+ssh pirate@kmaster-01
+passwd # old password hypriot
+mkdir .ssh && chmod 700 .ssh && cd .ssh
+echo "<your ssh key>" > authorized_keys
+chmod 600 authorized_keys
+cd
+git clone https://github.com/wolpert/kubeOnPi
+sudo ./kubeOnPi/kubernetes-install.sh
+```
+The node will reboot.
 
- - unzip hypriotos-rpi-v1.5.0.img.zip
+## Setting up kubernetes on the master
+```shell
+sudo kubeadm init --config kubeOnPi/kubeadm.yaml  #Yaml from kubeadm-workshop
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+kubectl apply -f https://git.io/weave-kube-1.6
+# On node, execute kubeadm join from kubeadmin init output
 
- - curl -O https://raw.githubusercontent.com/hypriot/flash/master/$(uname -s)/flash
- - chmod +x flash
+curl -sSL https://rawgit.com/coreos/flannel/v0.7.1/Documentation/kube-flannel-rbac.yml | kubectl create -f -
+curl -sSL https://rawgit.com/coreos/flannel/v0.7.1/Documentation/kube-flannel.yml | sed "s/amd64/arm/g" | kubectl create -f -
 
- - flash -n kmaster-01 hypriotos-rpi-v1.5.0.img  # Flashing img to sdcard. Name = kmaster-01
+kubectl --namespace kube-system get svc,deployment,rc,rs,pods,nodes  # Check for everything running
+```
 
- 
+## Node cleanup:
+```shell
+sudo ./kubeOnPi/kubernetes-cleanup.sh
+```
+Note that I get an error that brctl is not installed. Its cool.
 
-==== Set up master and node
+This cleanup was taken from here: https://stackoverflow.com/questions/41359224/kubernetes-failed-to-setup-network-for-pod-after-executed-kubeadm-reset/41372829#41372829
 
-    - sudo su
-    - curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg |sudo apt-key add -
-
-    - cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
-deb http://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-
-    - sudo apt-get update && \
-sudo apt-get upgrade -y && \
-sudo apt-get install kubeadm -y && \
-sudo apt-get autoclean && \
-sudo apt-get autoremove -y && \
-sudo reboot
-
-==== Kubernetes install (master)
-
-    - sudo kubeadm init --config kubeadm.yaml  #Yaml from workshop
-    - mkdir -p $HOME/.kube
-    - sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-    - sudo chown $(id -u):$(id -g) $HOME/.kube/config
-    - kubectl apply -f https://git.io/weave-kube-1.6
-    - # On node, execute kubeadm join from kubeadmin init output
-
-    - curl -sSL https://rawgit.com/coreos/flannel/v0.7.1/Documentation/kube-flannel-rbac.yml | kubectl create -f -
-    - curl -sSL https://rawgit.com/coreos/flannel/v0.7.1/Documentation/kube-flannel.yml | sed "s/amd64/arm/g" | kubectl create -f -
-
-    - kubectl --namespace kube-system get svc,deployment,rc,rs,pods,nodes  # Check for everything running
-
-
-==== Node cleanup:
-
-    - kubeadm reset
-    - rm -rf /var/lib/cni
-    - rm -rf /run/flannel
-    - rm -rf /etc/cni
-    - ifconfig cni0 down
-    - brctl delbr cni0  # May not be installed
+## Links
+ - https://github.com/luxas/kubeadm-workshop
+ - https://blog.hypriot.com/post/setup-kubernetes-raspberry-pi-cluster/
+ - https://kubernetes.io/docs/setup/
