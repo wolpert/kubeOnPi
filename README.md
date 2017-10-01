@@ -1,5 +1,11 @@
 # Getting Kubernetes on Raspberry Pi
 
+These instructions were taken from various sources. Note that this will get a
+base setup installed using HypriotOS as the linux install, which is arm, not
+arm64. The current configuration will use kubernetes 1.8 versions. Some
+packages such as heapster and kubernetes-dashboard are currently having issues
+on arm. 
+
 ## Image setup
 ```shell
 wget https://github.com/hypriot/image-builder-rpi/releases/download/v1.5.0/hypriotos-rpi-v1.5.0.img.zip
